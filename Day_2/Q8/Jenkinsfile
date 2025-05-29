@@ -1,0 +1,39 @@
+pipeline {
+    agent { label 'master' }
+    environment {
+        PROJECT_DIR = '/var/jenkins_home/workspace/NTI_Day2_Q8'
+    }
+    stages {
+        stage('Launch the EC2 Instance') {
+            steps {
+                dir("${PROJECT_DIR}") {
+                    script {
+                        sh 'terraform init'
+                        sh 'terraform apply -auto-approve'
+
+                        // Capture the public IP of the EC2 instance
+                        env.PUBLIC_IP = sh(script: "terraform output -raw public-ip", returnStdout: true).trim()
+
+                        // Print the captured public IP
+                        echo "The public IP of the EC2 instance is: ${env.PUBLIC_IP}"
+                    }
+                }
+            }
+        }
+        stage('Run Ansible Playbook') {
+            steps {
+                dir("${PROJECT_DIR}") {
+                    script {
+                        sh """
+                        docker run --rm --name ansible-container-for-deployment \
+                        -w /task \
+                        -v "\$(pwd)":/task \
+                        alpine/ansible:latest \
+                        sh -c 'ANSIBLE_CONFIG=Inventory/ansible.cfg ansible-playbook playbook.yaml'
+                        """
+                    }
+                }
+            }
+        }
+    }
+}

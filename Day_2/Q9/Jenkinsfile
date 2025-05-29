@@ -1,0 +1,31 @@
+pipeline {
+    agent any
+
+    environment {
+        EC2_USER = 'ubuntu'
+        EC2_IP = '54.144.119.171'
+        SSH_KEY_ID = 'my-rsa-key'
+    }
+
+    stages {
+        stage('Prepare Script') {
+            steps {
+                configFileProvider([configFile(fileId: 'nti-day2-q9-bash-script', variable: 'SCRIPT_FILE')]) {
+                    sh 'cat $SCRIPT_FILE > script.sh'
+                    sh 'chmod +x script.sh'
+                }
+            }
+        }
+
+        stage('Run Script on EC2') {
+            steps {
+                sshagent (credentials: [env.SSH_KEY_ID]) {
+                    sh """
+                    scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa script.sh ${EC2_USER}@${EC2_IP}:/tmp/script.sh
+                    ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${EC2_USER}@${EC2_IP} 'bash /tmp/script.sh'
+                    """
+                }
+            }
+        }
+    }
+}
