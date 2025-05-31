@@ -1,0 +1,39 @@
+pipeline {
+    agent {
+        docker {
+            image 'docker:24.0.2-dind'
+            args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+    environment {
+        IMAGE_NAME = 'shehabfahmy/hello-world'
+        TAG = 'latest'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/ianmiell/simple-dockerfile.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME:$TAG .'
+            }
+        }
+
+        stage('Login to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'my-dockerhub-cred', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker push $IMAGE_NAME:$TAG'
+            }
+        }
+    }
+}
